@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<opf:package version="3.0" unique-identifier="pubid" xmlns:opf="http://www.idpf.org/2007/opf">
+    <opf:metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+        <dc:identifier id="pubid">{{package.uuid}}</dc:identifier>
+        <opf:meta property="dcterms:modified">{{package.generated}}</opf:meta>
+        <dc:title>
+            {{package.title}}{% if package.subtitle %}: {{package.subtitle}}{% endif %}
+        </dc:title>
+        <dc:language>{{package.language}}</dc:language>
+        {% if package.contributors %}{% for contributor in package.contributors %}<dc:contributor>{{contributor}}</dc:contributor>{% endfor %}{% endif %}
+        <dc:creator>{{package.creator}}</dc:creator>
+    </opf:metadata>
+    <opf:manifest>
+        {% for item in package.items %}<opf:item href="{{item.xname}}" id="{{item.id}}" media-type="{{item.mime}}"{% if item.nav %} properties="nav"{% endif %}/>
+        {% endfor %}
+    </opf:manifest>
+    <opf:spine>
+        {% for item in package.items %}{% if item.readable %}<opf:itemref idref="{{item.id}}" linear="yes"/>
+        {% endif %}{% endfor %}
+    </opf:spine>
+</opf:package>

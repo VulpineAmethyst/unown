@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+    <head>
+        <meta charset="UTF-8"/>
+        <title>MHQ post #{{post.id}}</title>
+        <style>
+img { margin: 0px auto; }
+        </style>
+    </head>
+    <body>
+        <h1>Post <span id="post_id">{{post.id}}</span></h1>
+        <h2>by <span id="author">{{post.author}}</span> on <span id="date">{{post.date}}</span></h2>
+        <article id="content">
+            {{ post.content }}
+        </article>
+        {% if post.attachment %}<img src="{{post.attachment}}"/>{% endif %}
+    </body>
+</html>

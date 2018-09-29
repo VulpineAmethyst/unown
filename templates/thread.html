@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8"/>
+        <title>MHQ Thread #{{thread.id}}</title>
+        <link href="base.css" rel="stylesheet"/>
+    </head>
+    <body>
+        <article>
+            <h1>{{thread.title}}</h1>
+            {{thread.content}}
+            {% for post in thread.posts %}
+            <section>
+                <hgroup>
+                    <h1>Post #<span class="post_id">{{post.id}}</span></h1>
+                    <h2>by <span class="author">{{post.author}}</span> on <span class="date">{{post.date}}</span></h2>
+                </hgroup>
+                <div class="content">
+                    {{post.content}}
+                </div>
+                {% if post.attach %}<img src="{{post.attach}}"/>{% endif %}
+            </section>
+            {% endfor %}
+        </article>
+    </body>
+</html>
