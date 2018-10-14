@@ -9,6 +9,7 @@ import os.path as op
 
 from dataclasses import dataclass, field
 from typing import List
+from fnmatch import fnmatch
 
 import jinja2
 import tomlkit as toml
@@ -89,7 +90,7 @@ def save_config(filename, cfg):
     with open(filename, mode='w') as f:
         f.write(toml.dumps(cfg))
 
-def generate_filelist(path, metadata=False):
+def generate_filelist_from_path(path, metadata=False):
     files = []
     oebps_present = False
     meta_present = False
@@ -121,7 +122,48 @@ def generate_filelist(path, metadata=False):
 
     return files
 
-def build_package(cfg, path):
+def generate_filelist_from_whitelist(path, whitelist):
+    files = []
+
+    for item in whitelist:
+        full_name = op.join(path, item)
+        if not op.exists(full_name):
+            raise ValueError('{} missing'.format(item))
+
+        if '/' in item:
+            tree = op.split(full_name)
+            name = tree[-1]
+            path = op.join(tree[:-2])
+        else:
+            name = item
+
+        files.append(File(path, name))
+
+    return files
+
+def generate_filelist_with_whitelist(path, whitelist):
+    files = generate_filelist_from_whitelist(
+        op.join(path, 'OEBPS'),
+        whitelist
+    )
+
+    with os.scandir(path) as d:
+        for outer in d:
+            if outer.name == 'META-INF' and outer.is_dir():
+                with os.scandir(op.join(path, outer.name)) as e:
+                    for inner in e:
+                        files.append(File(op.join(path, outer.name), inner.name))
+            elif outer.name == 'OEBPS' and outer.is_dir():
+                with os.scandir(op.join(path, outer.name)) as e:
+                    for inner in e:
+                        if inner.name == 'nav.xhtml':
+                            files.append(File(op.join(path, outer.name), inner.name, nav=True))
+            else:
+                files.append(File(path, outer.name))
+
+    return files
+
+def build_package(cfg, path, files=None):
     package = op.join(path, cfg['directory'], 'epub.opf')
     toc = op.join(path, cfg['directory'], 'OEBPS', 'nav.xhtml')
     book = Book(
@@ -143,13 +185,17 @@ def build_package(cfg, path):
     if op.exists(toc):
         os.unlink(toc)
 
-    files = generate_filelist(op.join(path, cfg['directory']))
+    if files is None:
+        files = generate_filelist_from_path(op.join(path, cfg['directory']))
+    else:
+        files = generate_filelist_from_whitelist(op.join(path, cfg['directory'], 'OEBPS'), files)
+
     book.items = files
 
     with open(op.join(path, cfg['directory'], 'OEBPS', 'nav.xhtml'), mode='w') as f:
         f.write(env.get_template('nav.html').render(package=book))
 
-    files.append(File(op.join(path, cfg['directory']), 'OEBPS/nav.xhtml', nav=True))
+    book.items.append(File(op.join(path, cfg['directory'], 'OEBPS'), 'nav.xhtml', nav=True))
 
     with open(package, mode='w') as f:
         f.write(env.get_template('package.xml').render(package=book))
@@ -179,9 +225,40 @@ if __name__ == '__main__':
 
     print('Loading configuration...')
     cfg = load_config(sys.argv[1])
-    print('Building EPUB Package Document for {}...'.format(cfg['title']))
-    build_package(cfg, '.')
-    print('Building EPUB Container...')
-    make_zip(sys.argv[2], generate_filelist(op.join('.', cfg['directory']), metadata=True))
-    print('Saving configuration...')
-    save_config(sys.argv[1], cfg)
+    print('Generating EPUB for {}{}...'.format(
+        cfg['title'],
+        ': {}'.format(cfg['subtitle']) if 'subtitle' in cfg.keys() else ''
+    ))
+    if 'whitelist' in cfg.keys():
+        root_uuid = cfg['uuid']
+        pkgs = [item for item in cfg['whitelist'].keys() if not item.endswith('_uuid')]
+        output_base = op.splitext(sys.argv[2])
+
+        print('Found {} whitelist{}.'.format(len(pkgs), 's' if len(pkgs) > 1 else ''))
+        for name in pkgs:
+            whitelist = cfg['whitelist'][name]
+            output = ''.join([output_base[0] + '_' + name, output_base[1]])
+
+            if '{}_uuid'.format(name) not in cfg['whitelist']:
+                cfg['whitelist']['{}_uuid'.format(name)] = str(uuid.uuid1())
+
+            # FIXME - this is gross
+            cfg['uuid'] = cfg['whitelist']['{}_uuid'.format(name)]
+            print('Building EPUB Package Document for subset "{}"...'.format(name))
+            build_package(cfg, '.', list(whitelist))
+            cfg['uuid'] = root_uuid
+
+            print('Building EPUB Container for subset "{}"...'.format(name))
+            make_zip(output, generate_filelist_with_whitelist(
+                op.join('.', cfg['directory']),
+                list(whitelist)
+            ))
+
+        save_config(sys.argv[1], cfg)
+    else:
+        print('Building EPUB Package Document for {}...'.format(cfg['title']))
+        files = build_package(cfg, '.')
+        print('Building EPUB Container...')
+        make_zip(sys.argv[2], files)
+        print('Saving configuration...')
+        save_config(sys.argv[1], cfg)
