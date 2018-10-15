@@ -19,6 +19,8 @@
 
 import sys
 
+import os.path as op
+
 import unown
 
 print('Loading configuration...')
