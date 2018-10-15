@@ -141,11 +141,29 @@ def generate_filelist_from_whitelist(path, whitelist):
 
     return files
 
-def generate_filelist_with_whitelist(path, whitelist):
-    files = generate_filelist_from_whitelist(
-        op.join(path, 'OEBPS'),
-        whitelist
-    )
+def generate_filelist_from_blacklist(path, blacklist):
+    files = []
+
+    with os.scandir(path) as d:
+        for entry in d:
+            if entry.name in blacklist:
+                continue
+            else:
+                files.append(File(path, entry.name))
+
+    return files
+
+def generate_filelist_with_filter(path, items, whitelist=True):
+    if whitelist:
+        files = generate_filelist_from_whitelist(
+            op.join(path, 'OEBPS'),
+            items
+        )
+    else:
+        files = generate_filelist_from_blacklist(
+            op.join(path, 'OEBPS'),
+            items
+        )
 
     with os.scandir(path) as d:
         for outer in d:
@@ -156,14 +174,14 @@ def generate_filelist_with_whitelist(path, whitelist):
             elif outer.name == 'OEBPS' and outer.is_dir():
                 with os.scandir(op.join(path, outer.name)) as e:
                     for inner in e:
-                        if inner.name == 'nav.xhtml':
+                        if inner.name == 'nav.xhtml' and whitelist:
                             files.append(File(op.join(path, outer.name), inner.name, nav=True))
             else:
                 files.append(File(path, outer.name))
 
     return files
 
-def build_package(cfg, path, files=None):
+def build_package(cfg, path, files=None, whitelist=True):
     package = op.join(path, cfg['directory'], 'epub.opf')
     toc = op.join(path, cfg['directory'], 'OEBPS', 'nav.xhtml')
     book = Book(
@@ -187,8 +205,10 @@ def build_package(cfg, path, files=None):
 
     if files is None:
         files = generate_filelist_from_path(op.join(path, cfg['directory']))
-    else:
+    elif whitelist:
         files = generate_filelist_from_whitelist(op.join(path, cfg['directory'], 'OEBPS'), files)
+    else:
+        files = generate_filelist_from_blacklist(op.join(path, cfg['directory'], 'OEBPS'), files)
 
     book.items = files
 
@@ -230,6 +250,7 @@ if __name__ == '__main__':
         ': {}'.format(cfg['subtitle']) if 'subtitle' in cfg.keys() else ''
     ))
     if 'whitelist' in cfg.keys():
+        filtered = True
         root_uuid = cfg['uuid']
         pkgs = [item for item in cfg['whitelist'].keys() if not item.endswith('_uuid')]
         output_base = op.splitext(sys.argv[2])
@@ -244,21 +265,51 @@ if __name__ == '__main__':
 
             # FIXME - this is gross
             cfg['uuid'] = cfg['whitelist']['{}_uuid'.format(name)]
-            print('Building EPUB Package Document for subset "{}"...'.format(name))
-            build_package(cfg, '.', list(whitelist))
+            print('  Building EPUB Package Document for subset "{}"...'.format(name))
+            build_package(cfg, '.', list(whitelist), whitelist=True)
             cfg['uuid'] = root_uuid
 
-            print('Building EPUB Container for subset "{}"...'.format(name))
-            make_zip(output, generate_filelist_with_whitelist(
+            print('  Building EPUB Container for subset "{}"...'.format(name))
+            make_zip(output, generate_filelist_with_filter(
                 op.join('.', cfg['directory']),
-                list(whitelist)
+                list(whitelist),
+                whitelist=True
             ))
 
         save_config(sys.argv[1], cfg)
-    else:
+    if 'blacklist' in cfg.keys():
+        filtered = True
+        root_uuid = cfg['uuid']
+        pkgs = [item for item in cfg['blacklist'].keys() if not item.endswith('_uuid')]
+        output_base = op.splitext(sys.argv[2])
+
+        print('Found {} blacklist{}.'.format(len(pkgs), 's' if len(pkgs) > 1 else ''))
+        for name in pkgs:
+            blacklist = cfg['blacklist'][name]
+            output = ''.join([output_base[0] + '_' + name, output_base[1]])
+
+            if '{}_uuid'.format(name) not in cfg['blacklist']:
+                cfg['blacklist']['{}_uuid'.format(name)] = str(uuid.uuid1())
+
+            # FIXME - this is gross
+            cfg['uuid'] = cfg['blacklist']['{}_uuid'.format(name)]
+            print('  Building EPUB Package Document for subset "{}"...'.format(name))
+            build_package(cfg, '.', list(blacklist), whitelist=False)
+            cfg['uuid'] = root_uuid
+
+            print('  Building EPUB Container for subset "{}"...'.format(name))
+            make_zip(output, generate_filelist_with_filter(
+                op.join('.', cfg['directory']),
+                list(blacklist),
+                whitelist=False
+            ))
+
+        save_config(sys.argv[1], cfg)
+    
+    if cfg['generate_all'] or not filtered:
         print('Building EPUB Package Document for {}...'.format(cfg['title']))
-        files = build_package(cfg, '.')
+        build_package(cfg, '.')
         print('Building EPUB Container...')
-        make_zip(sys.argv[2], files)
+        make_zip(sys.argv[2], generate_filelist_from_path(op.join('.', cfg['directory']), metadata=True))
         print('Saving configuration...')
         save_config(sys.argv[1], cfg)
