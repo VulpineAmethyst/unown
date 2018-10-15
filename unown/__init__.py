@@ -29,7 +29,7 @@ from fnmatch import fnmatch
 import jinja2
 import tomlkit as toml
 
-env = jinja2.Environment(loader=jinja2.PackageLoader('unown', '../templates'))
+env = jinja2.Environment(loader=jinja2.PackageLoader('unown', 'templates'))
 
 mime = {
     'html': 'application/xhtml+xml',
