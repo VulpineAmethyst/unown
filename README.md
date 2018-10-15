@@ -1,11 +1,11 @@
 Unown
 -----
-Unown is a script for generationg an EPUB 3.0 Container from a set of
-files. It includes support for whitelists.
+Unown is a script for generating an EPUB 3.0 Container from a set of
+files. It includes support for whitelists and blacklists.
 
 Usage
 -----
-unown.py config.toml book.epub
+`unown.py config.toml book.epub`
 
 Configuration
 -------------
@@ -73,3 +73,5 @@ below:
 * `thread.html` -- Used by `merge_4chan.py` to render the whole thread.
 * `thread_post.html` -- Used by `merge_4chan.py` to render posts in the
   thread.
+
+Additional scripts may be incorporated for other purposes.
