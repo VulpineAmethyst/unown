@@ -42,6 +42,9 @@ generate_all=true
 # Blacklists exclude only files in the OEBPS subdirectory of the
 # directory configured above. Other files in the configured directory
 # are included regardless.
+#[blacklist]
+#choice=[ 'baz.html' ]
+#choice_uuid = "..."
 ```
 
 Templates
@@ -51,7 +54,7 @@ The following is a list of templates for Unown.
 
 * `container.xml` -- Not actually a template, but it's part of the EPUB
   3.0 Container specification, and it points to the `.opf` file.
-* `nav.html -- Used to generate the table of contents for navigation.
+* `nav.html` -- Used to generate the table of contents for navigation.
 * `package.xml` -- Used to generate the EPUB 3.0 Package Document for
   the ebook. This file is specified in `container.xml`.
 
