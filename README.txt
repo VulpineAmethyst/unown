@@ -43,3 +43,30 @@ generate_all=true
 # directory configured above. Other files in the configured directory
 # are included regardless.
 ```
+
+Templates
+---------
+Unown includes a set of Jinja2 templates in the `templates/` directory.
+The following is a list of templates for Unown.
+
+* `container.xml` -- Not actually a template, but it's part of the EPUB
+  3.0 Container specification, and it points to the `.opf` file.
+* `nav.html -- Used to generate the table of contents for navigation.
+* `package.xml` -- Used to generate the EPUB 3.0 Package Document for
+  the ebook. This file is specified in `container.xml`.
+
+Contributions
+-------------
+There are two scripts included with Unown which may be of interest.
+`extract_4chan.py` extracts all posts from a 4chan thread into the
+specified target directory. The second takes a directory of such posts
+and merges them in to a single file. It uses the id of the first post
+in the thread to name the resulting file.
+
+These scripts include their own Jinja2 templates, which are documented
+below:
+
+* `post.html` -- Used by `extract_4chan.py` to render individual posts.
+* `thread.html` -- Used by `merge_4chan.py` to render the whole thread.
+* `thread_post.html` -- Used by `merge_4chan.py` to render posts in the
+  thread.
