@@ -18,84 +18,60 @@
 # <https://www.gnu.org/licenses/>.
 
 import sys
+import uuid
 
 import os.path as op
 
 import unown
 
+def generate_epub(cfg, uuid, files, filename, mode='all'):
+    if mode not in ['white', 'black', 'all']:
+        raise ValueError('unknown mode')
+
+    path = op.join('.', cfg['directory'])
+
+    print('Generating {}...'.format(filename))
+    if 'single_file' in cfg.keys() and cfg['single_file']:
+        print('  Building EPUB Package Document...')
+        unown.build_package_singleton(cfg, path, cfg['source'], filename, mode)
+        print('  Building EPUB Container...')
+        unown.make_zip_singleton(filename, path, cfg['source'], filename, mode)
+    else:
+        print('  Building EPUB Package Document...')
+        unown.build_package(cfg, path, files, mode, uuid)
+        print('  Building EPUB Container...')
+        unown.make_zip(filename, path, files, mode)
+
+def process_list(cfg, mode='white'):
+    if mode not in ['white', 'black']:
+        raise ValueError('unknown mode')
+
+    listtype = mode + 'list'
+    sets = [item for item in cfg[listtype].keys() if not item.endswith('_uuid')]
+    count = len(sets)
+
+    print('Processing {}{}...'.format(listtype, 's' if count > 1 else ''))
+    for name in sets:
+        files = cfg[listtype][name]
+        filename = '{} {}.epub'.format(cfg['title'], name)
+        uuid_field = '{}_uuid'.format(name)
+
+        if uuid_field not in cfg[listtype]:
+            cfg[listtype][uuid_field] = str(uuid.uuid1())
+
+        generate_epub(cfg, cfg[listtype][uuid_field], files, filename, mode)
+
 print('Loading configuration...')
 cfg = unown.load_config(sys.argv[1])
-print('Generating EPUB for {}{}...'.format(
-    cfg['title'],
-    ': {}'.format(cfg['subtitle']) if 'subtitle' in cfg.keys() else ''
-))
+
 if 'whitelist' in cfg.keys():
     filtered = True
-    root_uuid = cfg['uuid']
-    pkgs = [item for item in cfg['whitelist'].keys() if not item.endswith('_uuid')]
-    output_base = op.splitext(sys.argv[2])
-
-    print('Found {} whitelist{}.'.format(len(pkgs), 's' if len(pkgs) > 1 else ''))
-    for name in pkgs:
-        whitelist = cfg['whitelist'][name]
-        output = ''.join([output_base[0] + '_' + name, output_base[1]])
-
-        if '{}_uuid'.format(name) not in cfg['whitelist']:
-            cfg['whitelist']['{}_uuid'.format(name)] = str(uuid.uuid1())
-
-        # FIXME - this is gross
-        cfg['uuid'] = cfg['whitelist']['{}_uuid'.format(name)]
-        print('  Building EPUB Package Document for subset "{}"...'.format(name))
-        unown.build_package(cfg, '.', list(whitelist), whitelist=True)
-        cfg['uuid'] = root_uuid
-
-        print('  Building EPUB Container for subset "{}"...'.format(name))
-        unown.make_zip(output, unown.generate_filelist_with_filter(
-            op.join('.', cfg['directory']),
-            list(whitelist),
-            whitelist=True
-        ))
-
-    unown.save_config(sys.argv[1], cfg)
+    process_list(cfg, 'white')
 if 'blacklist' in cfg.keys():
     filtered = True
-    root_uuid = cfg['uuid']
-    pkgs = [item for item in cfg['blacklist'].keys() if not item.endswith('_uuid')]
-    output_base = op.splitext(sys.argv[2])
-
-    print('Found {} blacklist{}.'.format(len(pkgs), 's' if len(pkgs) > 1 else ''))
-    for name in pkgs:
-        blacklist = cfg['blacklist'][name]
-        output = ''.join([output_base[0] + '_' + name, output_base[1]])
-
-        if '{}_uuid'.format(name) not in cfg['blacklist']:
-            cfg['blacklist']['{}_uuid'.format(name)] = str(uuid.uuid1())
-
-        # FIXME - this is gross
-        cfg['uuid'] = cfg['blacklist']['{}_uuid'.format(name)]
-        print('  Building EPUB Package Document for subset "{}"...'.format(name))
-        unown.build_package(cfg, '.', list(blacklist), whitelist=False)
-        cfg['uuid'] = root_uuid
-
-        print('  Building EPUB Container for subset "{}"...'.format(name))
-        unown.make_zip(output, unown.generate_filelist_with_filter(
-            op.join('.', cfg['directory']),
-            list(blacklist),
-            whitelist=False
-        ))
-
-    unown.save_config(sys.argv[1], cfg)
-
+    process_list(cfg, 'black')
 if cfg['generate_all'] or not filtered:
-    print('Building EPUB Package Document for {}...'.format(cfg['title']))
-    unown.build_package(cfg, '.')
-    print('Building EPUB Container...')
-    unown.make_zip(
-        sys.argv[2],
-        unown.generate_filelist_from_path(
-            op.join('.', cfg['directory']),
-            metadata=True
-        )
-    )
-    print('Saving configuration...')
-    unown.save_config(sys.argv[1], cfg)
+    generate_epub(cfg, cfg['uuid'], None, '{}.epub'.format(cfg['title']), 'all')
+
+print('Saving configuration...')
+unown.save_config(sys.argv[1], cfg)

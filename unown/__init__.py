@@ -196,9 +196,12 @@ def generate_filelist_with_filter(path, items, whitelist=True):
 
     return files
 
-def build_package(cfg, path, files=None, whitelist=True):
-    package = op.join(path, cfg['directory'], 'epub.opf')
-    toc = op.join(path, cfg['directory'], 'OEBPS', 'nav.xhtml')
+def build_package(cfg, path, files=None, mode='all', pkg_uuid=None):
+    if mode not in ['white', 'black', 'all']:
+        raise ValueError('unknown mode')
+
+    package = op.join(path, 'epub.opf')
+    toc = op.join(path, 'OEBPS', 'nav.xhtml')
     book = Book(
         title=cfg['title'],
         subtitle=cfg['subtitle'],
@@ -206,36 +209,36 @@ def build_package(cfg, path, files=None, whitelist=True):
         copyright=cfg['copyright'],
         creator=cfg['creator'],
         contributors=cfg['contributors'],
-        uuid=cfg['uuid'],
+        uuid=pkg_uuid if pkg_uuid is not None else cfg['uuid'],
         generated=datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     )
 
-    if not op.exists(op.join(path, cfg['directory'], 'META-INF')):
-        os.mkdir(op.join(path, cfg['directory'], 'META-INF'))
+    if not op.exists(op.join(path, 'META-INF')):
+        os.mkdir(op.join(path, 'META-INF'))
 
     if op.exists(package):
         os.unlink(package)
     if op.exists(toc):
         os.unlink(toc)
 
-    if files is None:
-        files = generate_filelist_from_path(op.join(path, cfg['directory']))
-    elif whitelist:
-        files = generate_filelist_from_whitelist(op.join(path, cfg['directory'], 'OEBPS'), files)
-    else:
-        files = generate_filelist_from_blacklist(op.join(path, cfg['directory'], 'OEBPS'), files)
+    if mode == 'all':
+        files = generate_filelist_from_path(path)
+    elif mode == 'white':
+        files = generate_filelist_from_whitelist(op.join(path, 'OEBPS'), files)
+    elif mode == 'black':
+        files = generate_filelist_from_blacklist(op.join(path, 'OEBPS'), files)
 
     book.items = files
 
-    with open(op.join(path, cfg['directory'], 'OEBPS', 'nav.xhtml'), mode='w') as f:
+    with open(op.join(path, 'OEBPS', 'nav.xhtml'), mode='w') as f:
         f.write(env.get_template('nav.html').render(package=book))
 
-    book.items.append(File(op.join(path, cfg['directory'], 'OEBPS'), 'nav.xhtml', nav=True))
+    book.items.append(File(op.join(path, 'OEBPS'), 'nav.xhtml', nav=True))
 
     with open(package, mode='w') as f:
         f.write(env.get_template('package.xml').render(package=book))
 
-def make_zip(filename, filelist):
+def make_zip(filename, path, files=None, mode='all'):
     doc = zipfile.ZipFile(
         filename,
         mode='x',
@@ -243,9 +246,18 @@ def make_zip(filename, filelist):
         compresslevel=9
     )
     doc.writestr('mimetype', 'application/epub+zip')
-    doc.write('templates/container.xml', 'META-INF/container.xml', compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
+    doc.writestr('META-INF/container.xml', env.get_template('container.xml').render())
 
-    for file in filelist:
+    if mode == 'all':
+        files = generate_filelist_from_path(path)
+    elif mode == 'white':
+        files = generate_filelist_with_filter(path, files, whitelist=True)
+    elif mode == 'black':
+        files = generate_filelist_with_filter(path, files, whitelist=False)
+    else:
+        raise ValueError('unrecognized mode: {}'.format(mode))
+
+    for file in files:
         if file.name.endswith('.png') or file.name.endswith('.jpg'):
             compress = zipfile.ZIP_STORED
         else:
