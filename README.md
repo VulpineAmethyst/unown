@@ -5,7 +5,12 @@ files. It includes support for whitelists and blacklists.
 
 Usage
 -----
-`unown.py config.toml book.epub`
+`unown.py config.toml`
+
+The script outputs EPUBs based on the title specified in the config
+file. For whitelist and blacklist generation, it incorporates the name
+of the list. For example, a whitelist named 'story' for a book with the
+title "An Example" would generate `An Example story.epub`.
 
 Configuration
 -------------
