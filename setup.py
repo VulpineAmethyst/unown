@@ -25,6 +25,6 @@ setup(
     author_email='kiyoshi.aman@gmail.com',
     description='An EPUB 3.0-compliant epub generator',
     license='AGPL-3.0+',
-    keywords='epub epub3 epub3.1 python3 python3.7',
+    keywords='epub epub3 epub3.0 python3 python3.7',
     url='https://git.aerdan.org/Aerdan/unown'
 )
