@@ -1,5 +1,5 @@
 # Unown is an EPUB generation utility conforming to EPUB 3.0.
-# Copyright (C) 2018 Kiyoshi Aman
+# Copyright (C) 2018-2022 Síle Ekaterin Liszka
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -48,7 +48,7 @@ class File:
     nav: bool = None
 
     @property
-    def xname(self):
+    def xhtml_filename(self):
         name, ext = op.splitext(self.name)
         return name + '.xhtml'
 
@@ -138,10 +138,10 @@ def generate_filelist_from_path(path, metadata=False):
 
     return files
 
-def generate_filelist_from_whitelist(path, whitelist):
+def generate_filelist_from_includes(path, includes):
     files = []
 
-    for item in whitelist:
+    for item in includes:
         full_name = op.join(path, item)
         if not op.exists(full_name):
             raise ValueError('{} missing'.format(item))
@@ -157,26 +157,26 @@ def generate_filelist_from_whitelist(path, whitelist):
 
     return files
 
-def generate_filelist_from_blacklist(path, blacklist):
+def generate_filelist_from_excludes(path, excludes):
     files = []
 
     with os.scandir(path) as d:
         for entry in d:
-            if entry.name in blacklist:
+            if entry.name in excludes:
                 continue
             else:
                 files.append(File(path, entry.name))
 
     return files
 
-def generate_filelist_with_filter(path, items, whitelist=True):
-    if whitelist:
-        files = generate_filelist_from_whitelist(
+def generate_filelist_with_filter(path, items, includes=True):
+    if includes:
+        files = generate_filelist_from_includes(
             op.join(path, 'OEBPS'),
             items
         )
     else:
-        files = generate_filelist_from_blacklist(
+        files = generate_filelist_from_excludes(
             op.join(path, 'OEBPS'),
             items
         )
@@ -190,7 +190,7 @@ def generate_filelist_with_filter(path, items, whitelist=True):
             elif outer.name == 'OEBPS' and outer.is_dir():
                 with os.scandir(op.join(path, outer.name)) as e:
                     for inner in e:
-                        if inner.name == 'nav.xhtml' and whitelist:
+                        if inner.name == 'nav.xhtml' and includes:
                             files.append(File(op.join(path, outer.name), inner.name, nav=True))
             else:
                 files.append(File(path, outer.name))
@@ -198,7 +198,7 @@ def generate_filelist_with_filter(path, items, whitelist=True):
     return files
 
 def build_package(cfg, path, files=None, mode='all', pkg_uuid=None):
-    if mode not in ['white', 'black', 'all']:
+    if mode not in ['include', 'exclude', 'all']:
         raise ValueError('unknown mode')
 
     package = op.join(path, 'epub.opf')
@@ -219,9 +219,12 @@ def build_package(cfg, path, files=None, mode='all', pkg_uuid=None):
 
     if op.exists(package): os.unlink(package)
 
-    if   mode == 'all':   files = generate_filelist_from_path(path)
-    elif mode == 'white': files = generate_filelist_from_whitelist(op.join(path, 'OEBPS'), files)
-    elif mode == 'black': files = generate_filelist_from_blacklist(op.join(path, 'OEBPS'), files)
+    if mode == 'all':
+        files = generate_filelist_from_path(path)
+    elif mode == 'include':
+        files = generate_filelist_from_includes(op.join(path, 'OEBPS'), files)
+    elif mode == 'exclude':
+        files = generate_filelist_from_excludes(op.join(path, 'OEBPS'), files)
 
     def key(item):
         return item.name
@@ -277,10 +280,10 @@ def make_zip(filename, path, files=None, mode='all'):
 
     if mode == 'all':
         files = generate_filelist_from_path(path)
-    elif mode == 'white':
-        files = generate_filelist_with_filter(path, files, whitelist=True)
-    elif mode == 'black':
-        files = generate_filelist_with_filter(path, files, whitelist=False)
+    elif mode == 'include':
+        files = generate_filelist_with_filter(path, files, includes=True)
+    elif mode == 'exclude':
+        files = generate_filelist_with_filter(path, files, includes=False)
     else:
         raise ValueError('unrecognized mode: {}'.format(mode))
 
@@ -297,6 +300,6 @@ def make_zip(filename, path, files=None, mode='all'):
         else:
             compress = zipfile.ZIP_DEFLATED
 
-        name = file.xname if file.name.endswith('.html') else file.name
+        name = file.xhtml_filename if file.name.endswith('.html') else file.name
 
         doc.write(op.join(file.path, file.name), name, compress_type=compress, compresslevel=9)
