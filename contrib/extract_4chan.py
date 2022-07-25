@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #
 # extract_4chan.py extracts posts from 4chan threads.
-# Copyright (C) 2018 Kiyoshi Aman
+# Copyright (C) 2018-2022 Síle Ekaterin Liszka
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as

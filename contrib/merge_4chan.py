@@ -2,7 +2,7 @@
 #
 # merge_4chan.py merges posts extracted by extract_4chan.py in to a
 # single document.
-# Copyright (C) 2018 Kiyoshi Aman
+# Copyright (C) 2018-2022 Síle Ekaterin Liszka
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
