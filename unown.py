@@ -33,7 +33,7 @@ def generate_epub(cfg, uuid, files, filename, mode='all'):
     print('Generating {}...'.format(filename))
     if 'single_file' in cfg.keys() and cfg['single_file']:
         print('  Building EPUB Package Document...')
-        unown.build_package_singleton(cfg, path, cfg['source'], filename, mode)
+        unown.build_package_singleton(cfg, path, mode)
         print('  Building EPUB Container...')
         unown.make_zip_singleton(filename, path, cfg['source'], filename, mode)
     else:

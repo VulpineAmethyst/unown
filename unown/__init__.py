@@ -216,17 +216,12 @@ def build_package(cfg, path, files=None, mode='all', pkg_uuid=None):
     if not op.exists(op.join(path, 'META-INF')):
         os.mkdir(op.join(path, 'META-INF'))
 
-    if op.exists(package):
-        os.unlink(package)
-    if op.exists(toc):
-        os.unlink(toc)
+    if op.exists(package): os.unlink(package)
+    if op.exists(toc): os.unlink(toc)
 
-    if mode == 'all':
-        files = generate_filelist_from_path(path)
-    elif mode == 'white':
-        files = generate_filelist_from_whitelist(op.join(path, 'OEBPS'), files)
-    elif mode == 'black':
-        files = generate_filelist_from_blacklist(op.join(path, 'OEBPS'), files)
+    if   mode == 'all':   files = generate_filelist_from_path(path)
+    elif mode == 'white': files = generate_filelist_from_whitelist(op.join(path, 'OEBPS'), files)
+    elif mode == 'black': files = generate_filelist_from_blacklist(op.join(path, 'OEBPS'), files)
 
     book.items = files
 
@@ -234,6 +229,30 @@ def build_package(cfg, path, files=None, mode='all', pkg_uuid=None):
         f.write(env.get_template('nav.html').render(package=book))
 
     book.items.append(File(op.join(path, 'OEBPS'), 'nav.xhtml', nav=True))
+
+    with open(package, mode='w') as f:
+        f.write(env.get_template('package.xml').render(package=book))
+
+def build_package_singleton(cfg, path, mode='all'):
+    if mode not in ['white', 'black', 'all']:
+        raise ValueError('unknown mode')
+
+    package = op.join(path, 'epub.opf')
+    toc = op.join(path, 'OEBPS', 'nav.xhtml')
+    book = Book(
+        title=cfg['title'],
+        subtitle=cfg['subtitle'],
+        language=cfg['language'],
+        copyright=cfg['copyright'],
+        creator=cfg['creator'],
+        contributors=cfg['contributors'],
+        uuid=cfg['uuid'],
+        generated=datetime.datetime.now(datime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    )
+    files = [File(path, cfg['source'])]
+
+    files.append(generate_toc_from_file(op.join(path, cfg['source']), toc))
+    book.items = files
 
     with open(package, mode='w') as f:
         f.write(env.get_template('package.xml').render(package=book))
