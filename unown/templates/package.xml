@@ -1,21 +1,21 @@
-<?xml version="1.0"?>
-<opf:package version="3.0" unique-identifier="pubid" xmlns:opf="http://www.idpf.org/2007/opf">
-    <opf:metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+<?xml version="1.0" encoding="UTF-8"?>
+<package version="3.0" unique-identifier="pubid" xmlns="http://www.idpf.org/2007/opf">
+    <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/">
         <dc:identifier id="pubid">{{package.uuid}}</dc:identifier>
-        <opf:meta property="dcterms:modified">{{package.generated}}</opf:meta>
+        <meta property="dcterms:modified">{{package.generated}}</meta>
         <dc:title>
             {{package.title}}{% if package.subtitle %}: {{package.subtitle}}{% endif %}
         </dc:title>
         <dc:language>{{package.language}}</dc:language>
         {% if package.contributors %}{% for contributor in package.contributors %}<dc:contributor>{{contributor}}</dc:contributor>{% endfor %}{% endif %}
         <dc:creator>{{package.creator}}</dc:creator>
-    </opf:metadata>
-    <opf:manifest>
-        {% for item in package.items %}<opf:item href="{{item.xname}}" id="{{item.id}}" media-type="{{item.mime}}"{% if item.nav %} properties="nav"{% endif %}/>
+    </metadata>
+    <manifest>
+        {% for item in package.items %}<item {% if item.name.endswith('.html') %}href="{{item.xname}}"{% else %}href="{{item.name}}"{%endif %} id="{{item.id}}" media-type="{{item.mime}}"{% if item.name == 'nav.xhtml' %} properties="nav"{% endif %}/>
         {% endfor %}
-    </opf:manifest>
-    <opf:spine>
-        {% for item in package.items %}{% if item.readable %}<opf:itemref idref="{{item.id}}" linear="yes"/>
+    </manifest>
+    <spine>
+        {% for item in package.items %}{% if item.readable %}<itemref idref="{{item.id}}" linear="yes"/>
         {% endif %}{% endfor %}
-    </opf:spine>
-</opf:package>
+    </spine>
+</package>

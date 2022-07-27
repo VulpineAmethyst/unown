@@ -37,7 +37,8 @@ mime = {
     'png':  'image/png',
     'jpg':  'image/jpeg',
     'css':  'text/css',
-    'xml':  'application/xml'
+    'xml':  'application/xml',
+    'ttf':  'font/ttf',
 }
 
 @dataclass
@@ -74,7 +75,7 @@ class File:
 
     @property
     def title(self):
-        path = 'Post ' + op.split(self.name)[-1]
+        path = 'Chapter ' + op.split(self.name)[-1]
         name, ext = op.splitext(path)
         return name
 
@@ -201,7 +202,7 @@ def build_package(cfg, path, files=None, mode='all', pkg_uuid=None):
         raise ValueError('unknown mode')
 
     package = op.join(path, 'epub.opf')
-    toc = op.join(path, 'OEBPS', 'nav.xhtml')
+    toc = op.join(path, 'nav.xhtml')
     book = Book(
         title=cfg['title'],
         subtitle=cfg['subtitle'],
@@ -217,18 +218,24 @@ def build_package(cfg, path, files=None, mode='all', pkg_uuid=None):
         os.mkdir(op.join(path, 'META-INF'))
 
     if op.exists(package): os.unlink(package)
-    if op.exists(toc): os.unlink(toc)
 
     if   mode == 'all':   files = generate_filelist_from_path(path)
     elif mode == 'white': files = generate_filelist_from_whitelist(op.join(path, 'OEBPS'), files)
     elif mode == 'black': files = generate_filelist_from_blacklist(op.join(path, 'OEBPS'), files)
 
-    book.items = files
+    def key(item):
+        return item.name
+    book.items = sorted(files, key=key)
 
-    with open(op.join(path, 'OEBPS', 'nav.xhtml'), mode='w') as f:
-        f.write(env.get_template('nav.html').render(package=book))
+    for item in book.items:
+        if item.name == 'nav.xhtml':
+            book.items.remove(item)
+            book.items.insert(0, item)
+            break
 
-    book.items.append(File(op.join(path, 'OEBPS'), 'nav.xhtml', nav=True))
+    if not op.exists(toc):
+        with open(toc, mode='w') as f:
+            f.write(env.get_template('nav.html').render(package=book))
 
     with open(package, mode='w') as f:
         f.write(env.get_template('package.xml').render(package=book))
@@ -264,7 +271,8 @@ def make_zip(filename, path, files=None, mode='all'):
         compression=zipfile.ZIP_DEFLATED,
         compresslevel=9
     )
-    doc.writestr('mimetype', 'application/epub+zip')
+    doc.writestr('mimetype', 'application/epub+zip',
+            compress_type=zipfile.ZIP_STORED)
     doc.writestr('META-INF/container.xml', env.get_template('container.xml').render())
 
     if mode == 'all':
@@ -277,8 +285,15 @@ def make_zip(filename, path, files=None, mode='all'):
         raise ValueError('unrecognized mode: {}'.format(mode))
 
     for file in files:
-        if file.name.endswith('.png') or file.name.endswith('.jpg'):
+        name = file.name
+        if (
+            name.endswith('.png') or name.endswith('.jpg') or
+            name.endswith('.ttf')
+        ):
             compress = zipfile.ZIP_STORED
+        elif name.endswith('.html'):
+            name = file.xname
+            compress = zipfile.ZIP_DEFLATED
         else:
             compress = zipfile.ZIP_DEFLATED
 
